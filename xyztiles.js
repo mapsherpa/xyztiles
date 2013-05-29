@@ -25,7 +25,7 @@ function XYZTiles(uri, callback) {
   
   this._isWriting = 0;
   this.contentType = 'image/jpeg';
-  this.uri = uri.protocol + '//' + uri.host + uri.pathname;
+  this.uri = 'http://' + uri.host + uri.pathname;
   
   if (uri.hash) {
     this.contentType = uri.hash.split('#')[1];
