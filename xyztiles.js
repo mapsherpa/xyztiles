@@ -23,9 +23,15 @@ function XYZTiles(uri, callback) {
     uri.query = qs.parse(uri.query);
   }
   
+  if (uri.port && uri.port == 443) {
+    uri.protocol = 'https:';
+  } else {
+    uri.protocol = 'http:'/
+  }
+  
   this._isWriting = 0;
   this.contentType = 'image/jpeg';
-  this.uri = 'http://' + uri.host + uri.pathname;
+  this.uri = uri.protocol + '//' + uri.host + uri.pathname;
   
   if (uri.hash) {
     this.contentType = uri.hash.split('#')[1];
