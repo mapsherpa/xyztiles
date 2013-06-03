@@ -26,7 +26,7 @@ function XYZTiles(uri, callback) {
   if (uri.port && uri.port == 443) {
     uri.protocol = 'https:';
   } else {
-    uri.protocol = 'http:'/
+    uri.protocol = 'http:';
   }
   
   this._isWriting = 0;
