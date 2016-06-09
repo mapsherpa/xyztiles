@@ -28,7 +28,14 @@ function XYZTiles(uri, callback) {
   } else {
     uri.protocol = 'http:';
   }
-  
+
+  uri.pathname = uri.pathname.replace(/%7B/g,"{");
+  uri.path = uri.path.replace(/%7B/g,"{");
+  uri.href = uri.href.replace(/%7B/g,"{");
+  uri.pathname = uri.pathname.replace(/%7D/g,"}");
+  uri.path = uri.path.replace(/%7D/g,"}");
+  uri.href = uri.href.replace(/%7D/g,"}");
+
   this._isWriting = 0;
   this.contentType = 'image/jpeg';
   this.uri = uri.protocol + '//' + uri.host + uri.pathname;
