@@ -13,7 +13,6 @@
   "author": "Paul Spencer",
   "license": "MIT",
   "dependencies": {
-    "request": "~2.21.0"
   },
   "devDependencies": {
     "better-assert": "~1.0.0",

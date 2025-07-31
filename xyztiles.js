@@ -1,10 +1,7 @@
-var url = require('url')
-  , qs = require('querystring')
-  , request = require('request')
-  , http = require('http')
-  , util = require('util')
-  , debug
-  ;
+const qs = require('node:querystring');
+const util = require('util');
+const { Writable } = require('stream');
+var debug;
   
 if (util.debuglog) {
   debug = util.debuglog('xyztiles');
@@ -17,29 +14,26 @@ if (util.debuglog) {
 exports = module.exports = XYZTiles;
 
 function XYZTiles(uri, callback) {
+  let myParams = {};
+
   if (typeof uri === 'string') {
-    uri = url.parse(uri, true);
+    uri = URL.parse(uri);
   } else if (typeof uri.query === 'string') {
-    uri.query = qs.parse(uri.query);
+    myParams.query = qs.parse(uri.query);
   }
   
   if (uri.port && uri.port == 443) {
-    uri.protocol = 'https:';
+    myParams.protocol = 'https:';
   } else {
-    uri.protocol = 'http:';
+    myParams.protocol = 'http:';
   }
-
-  uri.pathname = uri.pathname.replace(/%7B/g,"{");
-  uri.path = uri.path.replace(/%7B/g,"{");
-  uri.href = uri.href.replace(/%7B/g,"{");
-  uri.pathname = uri.pathname.replace(/%7D/g,"}");
-  uri.path = uri.path.replace(/%7D/g,"}");
-  uri.href = uri.href.replace(/%7D/g,"}");
 
   this._isWriting = 0;
   this.contentType = 'image/jpeg';
-  this.uri = uri.protocol + '//' + uri.host + uri.pathname;
-  if (uri.search) {
+  this.uri = myParams.protocol + '//' + uri.host + uri.pathname;
+  if (myParams.search) {
+    this.uri += myParams.search;
+  } else if (uri.search){
     this.uri += uri.search;
   }
   
@@ -56,25 +50,61 @@ XYZTiles.registerProtocols = function(tilelive) {
 };
 
 XYZTiles.prototype.getTile = function(z, x, y, callback) {
-  var args = {x:x,y:y,z:z}
-    , opts = {
-        uri: this.uri.replace(/\$\{(.*?)\}/g, function(match, item) {
-            return typeof args[item] !== 'undefined' ? args[item] : match;
-          }),
-        encoding: null
-      }
-    ;
+  const args = { x, y, z };
+  const uri = decodeURIComponent(this.uri).replace(/\$\{(.*?)\}/g, (match, item) => {
+    return typeof args[item] !== 'undefined' ? args[item] : match;
+  });
 
-  debug(opts.uri);
+  debug(uri);
 
-  if (callback instanceof require('stream')) {
-    request(opts).pipe(callback);
+  if (callback instanceof Writable) {
+    fetch(uri)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // The fetch response body is a ReadableStream.
+        // We can use the pipeTo method to pipe it directly to a Writable stream.
+        return response.body.pipeTo(callback);
+      })
+      .catch(error => {
+        callback.emit('error', error);
+      });
   } else if (typeof callback !== 'function') {
     throw new Error('Callback needed');
   } else {
-    request(opts, function(error, response, body) {
-      callback(null, body, response.headers);
-    });
+    fetch(uri)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // To get the raw body data, we can use arrayBuffer()
+        return Promise.all([
+          response.arrayBuffer(),
+          response.headers
+        ]);
+      })
+      .then(([bodyBuffer, headers]) => {
+        // Convert the Headers object to a plain JavaScript object
+        const plainHeaders = {};
+        headers.forEach((value, key) => {
+          if (plainHeaders[key]) {
+            if (Array.isArray(plainHeaders[key])) {
+              plainHeaders[key].push(value);
+            } else {
+              plainHeaders[key] = [plainHeaders[key], value];
+            }
+          } else {
+            plainHeaders[key] = value;
+          }
+        });
+
+        // Convert the ArrayBuffer to a Buffer for compatibility
+        callback(null, Buffer.from(bodyBuffer), plainHeaders);
+      })
+      .catch(error => {
+        callback(error);
+      });
   }
 };
 
